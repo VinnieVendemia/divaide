@@ -102,8 +102,17 @@ main() {
             cd "$worktree_path"
             log_info "Changed to worktree directory: $(pwd)"
 
-            log_info "Running install script"
-            npm i
+            # Run setup commands from .divaide if present
+            if [[ -f ".divaide" ]]; then
+                log_info "Running setup commands from .divaide..."
+                while IFS= read -r line; do
+                    [[ -z "$line" || "$line" =~ ^# ]] && continue
+                    log_info "Executing: $line"
+                    eval "$line"
+                done < .divaide
+            else
+                log_info "No .divaide file found, skipping setup."
+            fi
             
             # Start Claude Code
             log_info "Starting Claude Code..."
