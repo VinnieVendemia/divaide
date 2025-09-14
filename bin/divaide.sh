@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Claude Code Launcher with Automatic Worktree Setup
-# Usage: ./setup-worktree.sh [branch-name] [base-branch]
+# Usage: ./divaide.sh [branch-name] [base-branch]
 
 # set -e removed to prevent terminal exit when sourced
 
