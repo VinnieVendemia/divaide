@@ -18,7 +18,7 @@ brew tap VinnieVendemia/tools
 ```
 
 ```
-brew install divaide
+brew install vinnievendemia/tools/divaide
 ```
 
 ## Setup
