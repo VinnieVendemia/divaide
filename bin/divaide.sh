@@ -23,6 +23,58 @@ log_warning() {
     echo -e "${YELLOW}⚠️  $1${NC}"
 }
 
+# Function to get available worktrees for the current project
+get_project_worktrees() {
+    local repo_name="$1"
+    local worktree_pattern="/.${repo_name}/trees/"
+
+    # Get all worktrees and filter for this project
+    local worktrees=()
+    while IFS= read -r line; do
+        if [[ "$line" == *"$worktree_pattern"* ]]; then
+            # Extract branch name from brackets at end of line
+            if [[ "$line" =~ \[([^\]]+)\]$ ]]; then
+                worktrees+=("${BASH_REMATCH[1]}")
+            fi
+        fi
+    done < <(git worktree list 2>/dev/null)
+
+    printf '%s\n' "${worktrees[@]}"
+}
+
+# Interactive menu for selecting worktree
+select_worktree() {
+    local repo_name="$1"
+    local options=()
+
+    # Get available worktrees (compatible with older bash)
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && options+=("$line")
+    done < <(get_project_worktrees "$repo_name")
+
+    if [ ${#options[@]} -eq 0 ]; then
+        return 1
+    fi
+
+    # Display menu to stderr so it doesn't interfere with command substitution
+    echo >&2
+    echo "Available worktrees for $repo_name:" >&2
+    echo "==================================" >&2
+
+    # Use bash select for menu navigation
+    local PS3="Select a worktree (or press Ctrl+C to create new): "
+    select branch_name in "${options[@]}" "Create new worktree"; do
+        if [[ "$REPLY" -ge 1 && "$REPLY" -le ${#options[@]} ]]; then
+            echo "$branch_name"  # This goes to stdout for command substitution
+            return 0
+        elif [[ "$REPLY" -eq $((${#options[@]} + 1)) ]]; then
+            return 1
+        else
+            echo "Invalid selection. Please try again." >&2
+        fi
+    done
+}
+
 main() {
     local branch_name="$1"
     local base_branch="$2"
@@ -57,13 +109,19 @@ main() {
     while true; do
         # Prompt for branch name if not provided
         if [ -z "$branch_name" ]; then
-            echo
-            echo "Please enter a tree name (e.g., PROJ-123-add-new-feature):"
-            read -r branch_name
-            
-            if [ -z "$branch_name" ]; then
-                echo "❌ Tree name is required"
-                continue
+            # Try to select from existing worktrees first
+            if branch_name=$(select_worktree "$repo_name"); then
+                log_info "Selected existing worktree: $branch_name"
+            else
+                # Fallback to manual entry if no worktrees or user chose to create new
+                echo
+                echo "Please enter a tree name (e.g., PROJ-123-add-new-feature):"
+                read -r branch_name
+
+                if [ -z "$branch_name" ]; then
+                    echo "❌ Tree name is required"
+                    continue
+                fi
             fi
         fi
         
