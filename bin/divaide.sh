@@ -61,17 +61,32 @@ select_worktree() {
     echo "Available worktrees for $repo_name:" >&2
     echo "==================================" >&2
 
-    # Use bash select for menu navigation
-    local PS3="Select a worktree (or press Ctrl+C to create new): "
-    select branch_name in "${options[@]}" "Create new worktree"; do
-        if [[ "$REPLY" -ge 1 && "$REPLY" -le ${#options[@]} ]]; then
-            echo "$branch_name"  # This goes to stdout for command substitution
-            return 0
-        elif [[ "$REPLY" -eq $((${#options[@]} + 1)) ]]; then
+    # Display numbered options
+    local i=1
+    for option in "${options[@]}"; do
+        echo "$i) $option" >&2
+        ((i++))
+    done
+    echo >&2
+
+    # Custom menu with read
+    while true; do
+        echo -n "Select a worktree (1-${#options[@]}, or press Enter to create new): " >&2
+        read -r choice
+
+        # If empty (just pressed Enter), go to manual entry
+        if [[ -z "$choice" ]]; then
             return 1
-        else
-            echo "Invalid selection. Please try again." >&2
         fi
+
+        # Check if valid number
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 && "$choice" -le ${#options[@]} ]]; then
+            # Valid selection - output the branch name
+            echo "${options[$((choice-1))]}"
+            return 0
+        fi
+
+        echo "Invalid selection. Please try again." >&2
     done
 }
 
