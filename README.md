@@ -32,25 +32,46 @@ Reload your shell to activate.
 
 ## Usage
 
-To startup a new session for a feature branch:
+To startup a new session:
 
 ```
-divaide my-feature-branch
+divaide
 ```
 
-This will
+This will launch into an interactive menu to select from existing trees for your
+project, or allow you to create a new tree.
+
+Once a tree is selected, this will:
 
 - Create a new git worktree from your projects current branch (or re-enter an existing one)
 - cd into that directory
-- run `npm i`
+- run any commands defined in your `.divaide` file (on tree creation only)
 - Launch a new claude code session
 
 From here, you have a working copy of your application code separate from your main application code.
 
 Tell claude to make changes, fix bugs, etc.  Exiting the claude console
-leaves you in the current "worktree" directory, if you want to manually
-intervene in anyway. Restart your claude session and pickup where you
-left things off.
+leaves you in the current "worktree" directory, if manual intervention is
+required. Restart your claude session and pickup where you left things off.
+
+To startup a new session for an existing tree:
+
+```
+divaide my-feature-branch
+```
+
+## Configuration
+
+divaide supports a configuration file for each git project.  Add a `.divaide` file
+to your project root, and add any commands you wish to run when a tree is
+initially created.  You'll need to check this file into your repo for this to work.
+
+For example:
+
+```
+# .divaide
+npm install
+```
 
 ## Upgrading
 
