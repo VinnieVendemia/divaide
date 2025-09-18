@@ -38,8 +38,53 @@ get_project_worktrees() {
             fi
         fi
     done < <(git worktree list 2>/dev/null)
-
     printf '%s\n' "${worktrees[@]}"
+}
+
+# Function to display menu with current selection highlighted
+display_menu() {
+    local selected="$1"
+    local repo_name="$2"
+    shift 2
+    local menu_options=("${@}")
+
+    # Clear screen and move cursor to top
+    clear >&2
+    echo >&2
+    echo "Available worktrees for $repo_name:" >&2
+    echo "==================================" >&2
+    echo >&2
+
+    local i=0
+    for option in "${menu_options[@]}"; do
+        if [[ $i -eq $selected ]]; then
+            echo -e "→ \033[7m$option\033[0m" >&2  # Highlighted (reverse video)
+        else
+            echo "  $option" >&2
+        fi
+        ((i++))
+    done
+
+    echo >&2
+    echo "Use ↑/↓ arrows to navigate, Enter to select, or any other key to create new" >&2
+}
+
+# Function to read arrow keys
+read_key() {
+    local key
+    read -rsn1 key
+    case "$key" in
+        $'\e')  # Escape sequence
+            read -rsn2 key
+            case "$key" in
+                '[A') echo "up" ;;
+                '[B') echo "down" ;;
+                *) echo "other" ;;
+            esac
+            ;;
+        '') echo "enter" ;;  # Enter key
+        *) echo "other" ;;
+    esac
 }
 
 # Interactive menu for selecting worktree
@@ -56,37 +101,43 @@ select_worktree() {
         return 1
     fi
 
-    # Display menu to stderr so it doesn't interfere with command substitution
-    echo >&2
-    echo "Available worktrees for $repo_name:" >&2
-    echo "==================================" >&2
+    # Arrow key navigation menu
+    local selected=0
+    local max_index=$((${#options[@]} - 1))
 
-    # Display numbered options
-    local i=1
-    for option in "${options[@]}"; do
-        echo "$i) $option" >&2
-        ((i++))
-    done
-    echo >&2
+    # Initial display
+    display_menu "$selected" "$repo_name" "${options[@]}"
 
-    # Custom menu with read
+    # Navigation loop
     while true; do
-        echo -n "Select a worktree (1-${#options[@]}, or press Enter to create new): " >&2
-        read -r choice
+        local key
+        key=$(read_key)
 
-        # If empty (just pressed Enter), go to manual entry
-        if [[ -z "$choice" ]]; then
-            return 1
-        fi
-
-        # Check if valid number
-        if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 && "$choice" -le ${#options[@]} ]]; then
-            # Valid selection - output the branch name
-            echo "${options[$((choice-1))]}"
-            return 0
-        fi
-
-        echo "Invalid selection. Please try again." >&2
+        case "$key" in
+            "up")
+                ((selected--))
+                if [[ $selected -lt 0 ]]; then
+                    selected=$max_index
+                fi
+                display_menu "$selected" "$repo_name" "${options[@]}"
+                ;;
+            "down")
+                ((selected++))
+                if [[ $selected -gt $max_index ]]; then
+                    selected=0
+                fi
+                display_menu "$selected" "$repo_name" "${options[@]}"
+                ;;
+            "enter")
+                # Selected an option - output the branch name
+                echo "${options[$selected]}"
+                return 0
+                ;;
+            "other")
+                # Any other key - go to manual entry
+                return 1
+                ;;
+        esac
     done
 }
 
