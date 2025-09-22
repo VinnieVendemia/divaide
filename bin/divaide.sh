@@ -12,15 +12,15 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 log_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
+    echo -e "${BLUE}ℹ️  $1${NC}" >&2
 }
 
 log_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+    echo -e "${GREEN}✅ $1${NC}" >&2
 }
 
 log_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+    echo -e "${YELLOW}⚠️  $1${NC}" >&2
 }
 
 # Function to get available worktrees for the current project
@@ -145,12 +145,12 @@ main() {
     local branch_name="$1"
     local base_branch="$2"
     
-    echo "🚀 Claude Code Launcher with Worktree Setup"
-    echo "==========================================="
+    echo "🚀 Claude Code Launcher with Worktree Setup" >&2
+    echo "===========================================" >&2
     
     # Check if we're in a git repository
     if ! git rev-parse --git-dir >/dev/null 2>&1; then
-        echo "❌ Not in a git repository. Please run this from within a git repository."
+        echo "❌ Not in a git repository. Please run this from within a git repository." >&2
         return 1
     fi
     
@@ -180,12 +180,12 @@ main() {
                 log_info "Selected existing worktree: $branch_name"
             else
                 # Fallback to manual entry if no worktrees or user chose to create new
-                echo
-                echo "Please enter a tree name (e.g., PROJ-123-add-new-feature):"
+                echo >&2
+                echo "Please enter a tree name (e.g., PROJ-123-add-new-feature):" >&2
                 read -r branch_name
 
                 if [ -z "$branch_name" ]; then
-                    echo "❌ Tree name is required"
+                    echo "❌ Tree name is required" >&2
                     continue
                 fi
             fi
@@ -203,23 +203,15 @@ main() {
         # Check if worktree already exists
         if [ -d "$worktree_path" ]; then
             log_warning "Worktree directory already exists: $worktree_path"
-            # echo "Do you want to remove it and create a new one? (y/N):"
-            # read -r response
-            # if [[ "$response" =~ ^[Yy]$ ]]; then
-            #     log_info "Removing existing worktree..."
-            #     git worktree remove "$worktree_path" 2>/dev/null || rm -rf "$worktree_path"
-            # else
             log_info "Using existing worktree directory"
             cd "$worktree_path"
             log_success "Changed to worktree: $branch_name"
-            claude
-            return
-            # fi
+            break
         fi
         
         # Create the worktree
         log_info "Creating git worktree..."
-        if git worktree add -b "$branch_name" "$worktree_path" "$base_branch"; then
+        if git worktree add -b "$branch_name" "$worktree_path" "$base_branch" >&2; then
             log_success "Worktree created successfully"
             
             # Change to the worktree directory
@@ -238,23 +230,15 @@ main() {
                 log_info "No .divaide file found, skipping setup."
             fi
             
-            # Start Claude Code
-            log_info "Starting Claude Code..."
-            echo
-            
-            # Set environment variables for Claude Code
-            export CLAUDE_TICKET_NAME="$branch_name"
-            export CLAUDE_WORKTREE_PATH="$(pwd)"
-            
-            # Launch Claude Code
-            claude
             break
         else
-            echo "❌ Failed to create worktree '$branch_name'"
-            echo "Please try a different tree name."
+            echo "❌ Failed to create worktree '$branch_name'" >&2
+            echo "Please try a different tree name." >&2
             branch_name=""  # Reset to prompt again
         fi
     done
+
+    echo "$worktree_path"
 }
 
 # Show help if requested

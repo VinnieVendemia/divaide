@@ -1,4 +1,11 @@
 # etc/divaide.sh
 divaide() {
-  source "$(brew --prefix divaide)/libexec/divaide.sh" "$@"
+  local target
+  target="$("$(brew --prefix divaide)/libexec/divaide.sh" "$@")"
+    
+  if [ -d "$target" ]; then
+    cd "$target" || return
+
+    claude
+  fi
 }
