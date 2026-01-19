@@ -224,7 +224,7 @@ main() {
                 while IFS= read -r line; do
                     [[ -z "$line" || "$line" =~ ^# ]] && continue
                     log_info "Executing: $line"
-                    eval "$line"
+                    (eval "$line" >&2)
                 done < .divaide
             else
                 log_info "No .divaide file found, skipping setup."
