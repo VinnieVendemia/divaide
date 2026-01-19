@@ -62,16 +62,115 @@ divaide my-feature-branch
 
 ## Configuration
 
-divaide supports a configuration file for each git project.  Add a `.divaide` file
+### .divaide Configuration File
+
+divaide supports a configuration file for each git project. Add a `.divaide` file
 to your project root, and add any commands you wish to run when a tree is
-initially created.  You'll need to check this file into your repo for this to work.
+initially created. You'll need to check this file into your repo for this to work.
 
-For example:
+The `.divaide` file is executed **only when creating a new worktree**, not when
+entering an existing one. This allows for automatic project setup in the new
+environment.
 
-```
-# .divaide
+#### Basic Examples
+
+```bash
+# .divaide - Basic setup
 npm install
+cp .env.example .env
+echo "Worktree setup complete!"
 ```
+
+```bash
+# .divaide - More complex setup
+# Copy environment files
+cp ~/code/shared-configs/.env .
+cp ~/code/shared-configs/config.local.json .
+
+# Install dependencies
+npm install
+
+# Run database migrations
+npm run db:migrate
+
+# Start development services in background
+docker-compose up -d redis postgres
+
+echo "Development environment ready!"
+```
+
+#### Supported Features
+
+- **Comments**: Lines starting with `#` are ignored
+- **Empty lines**: Blank lines are skipped
+- **Any shell commands**: Full bash command support
+- **Environment variables**: Access to your shell environment
+- **Relative paths**: Commands run in the worktree directory
+
+#### Important Notes
+
+⚠️ **Command Output**: All command output (stdout/stderr) from `.divaide` commands
+is displayed during execution but doesn't interfere with divaide's operation.
+
+✅ **Directory Safety**: Commands in `.divaide` run in isolated subshells, so
+directory changes (like `cd` commands) won't affect divaide's final directory.
+
+✅ **Clean Execution**: The script ensures you end up in the correct worktree
+directory regardless of what commands are run in `.divaide`.
+
+#### Troubleshooting
+
+If you experience issues with `.divaide` commands:
+
+1. **Check command syntax**: Test commands manually first
+2. **Use absolute paths**: For files outside the repo, use full paths
+3. **Check permissions**: Ensure commands have proper file/directory access
+4. **Debug output**: All command output is visible during execution
+
+## Development & Deployment
+
+### For Contributors/Maintainers
+
+This section covers how to release new versions of divaide.
+
+#### Release Process
+
+1. **Create and Push New Release**
+   ```bash
+   # Tag the release
+   git tag -a v0.1.9 -m "Description of changes"
+   git push origin v0.1.9
+   ```
+
+2. **Calculate SHA256 Hash**
+   ```bash
+   # Get the hash for the new release
+   curl -sL "https://github.com/VinnieVendemia/divaide/archive/refs/tags/v0.1.9.tar.gz" | sha256sum
+   ```
+
+3. **Update Homebrew Formula**
+
+   Update the formula in the `VinnieVendemia/homebrew-tools` repository:
+
+   File: `Formula/divaide.rb`
+   ```ruby
+   class Divaide < Formula
+     url "https://github.com/vinnievendemia/divaide/archive/refs/tags/v0.1.9.tar.gz"
+     sha256 "NEW_SHA256_HASH_HERE"
+     # ... rest of formula
+   end
+   ```
+
+5. **Update Documentation**
+   - Update `CHANGELOG.md` with new version details
+   - Update any relevant README sections
+
+#### Repository Structure
+
+- **Main Repository**: `VinnieVendemia/divaide` - Contains the source code
+- **Homebrew Tap**: `VinnieVendemia/homebrew-tools` - Contains the brew formula
+- **Installation**: Users run `brew tap VinnieVendemia/tools && brew install vinnievendemia/tools/divaide`
+
 
 ## Upgrading
 
