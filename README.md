@@ -62,11 +62,30 @@ divaide my-feature-branch
 
 ## Configuration
 
+### Project Init Script (Recommended)
+
+Create a project-specific init script that runs when creating new worktrees:
+
+```
+divaide --init
+```
+
+This creates an init file at `.{repo-name}/init` (sibling to your repo, same location as your worktrees) and opens it in your editor. Add any setup commands you need:
+
+```bash
+# Example init file
+npm install
+cp ~/secrets/.env .
+echo "Setup complete!"
+```
+
+The init file is **shared across all worktrees** for the project and lives outside your repo, so it won't be committed.
+
 ### .divaide Configuration File
 
-divaide supports a configuration file for each git project. Add a `.divaide` file
-to your project root, and add any commands you wish to run when a tree is
-initially created. You'll need to check this file into your repo for this to work.
+Alternatively, add a `.divaide` file to your project root. This file gets copied into each worktree and must be checked into your repo.
+
+**Precedence**: If both exist, the init file takes priority over `.divaide`.
 
 The `.divaide` file is executed **only when creating a new worktree**, not when
 entering an existing one. This allows for automatic project setup in the new

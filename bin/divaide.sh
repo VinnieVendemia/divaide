@@ -218,16 +218,27 @@ main() {
             cd "$worktree_path"
             log_info "Changed to worktree directory: $(pwd)"
 
-            # Run setup commands from .divaide if present
-            if [[ -f ".divaide" ]]; then
+            # Determine which setup file to use (init takes precedence over .divaide)
+            # From worktree at ../.repo/trees/branch, ../../init resolves to ../.repo/init
+            local init_file="../../init"
+            local setup_file=""
+
+            if [[ -f "$init_file" ]]; then
+                setup_file="$init_file"
+                log_info "Running setup commands from init file..."
+            elif [[ -f ".divaide" ]]; then
+                setup_file=".divaide"
                 log_info "Running setup commands from .divaide..."
+            fi
+
+            if [[ -n "$setup_file" ]]; then
                 while IFS= read -r line; do
                     [[ -z "$line" || "$line" =~ ^# ]] && continue
                     log_info "Executing: $line"
                     (eval "$line" >&2)
-                done < .divaide
+                done < "$setup_file"
             else
-                log_info "No .divaide file found, skipping setup."
+                log_info "No init or .divaide file found, skipping setup."
             fi
             
             break
@@ -243,22 +254,60 @@ main() {
 
 # Show help if requested
 if [[ "$1" == "-h" || "$1" == "--help" || "$1" == "help" ]]; then
-    echo "Usage: $0 [branch-name] [base-branch]"
-    echo ""
-    echo "Creates a git worktree and launches Claude Code in it."
-    echo "Works with any git repository - detects repo name and default branch automatically."
-    echo ""
-    echo "Arguments:"
-    echo "  branch-name    Branch name for the worktree (will prompt if not provided)"
-    echo "  base-branch    Base branch to branch from (auto-detected if not provided)"
-    echo ""
-    echo "Examples:"
-    echo "  $0                                        # Interactive mode"
-    echo "  $0 PROJ-123-add-new-feature             # Create worktree for specific branch"
-    echo "  $0 feature-auth main                      # Create worktree from main branch"
-    echo ""
-    echo "The script must be run from within a git repository."
-    return 0
+    cat >&2 << 'EOF'
+Usage: divaide [branch-name] [base-branch]
+       divaide --init
+
+Creates a git worktree and launches Claude Code in it.
+Works with any git repository - detects repo name and default branch automatically.
+
+Arguments:
+  branch-name    Branch name for the worktree (will prompt if not provided)
+  base-branch    Base branch to branch from (auto-detected if not provided)
+  --init         Create/show path to project init script
+
+Examples:
+  divaide                                        # Interactive mode
+  divaide PROJ-123-add-new-feature             # Create worktree for specific branch
+  divaide feature-auth main                      # Create worktree from main branch
+  divaide --init                                 # Create project init script
+
+The script must be run from within a git repository.
+EOF
+    exit 0
+fi
+
+# Handle --init to create/show project init script
+if [[ "$1" == "--init" ]]; then
+    repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+    if [[ -z "$repo_root" ]]; then
+        echo "Error: Not in a git repository" >&2
+        exit 1
+    fi
+    repo_name=$(basename "$repo_root")
+    init_path="${repo_root}/../.${repo_name}/init"
+
+    # Create directory if needed
+    mkdir -p "$(dirname "$init_path")"
+
+    # Resolve to clean canonical path
+    init_path=$(cd "$(dirname "$init_path")" && pwd)/$(basename "$init_path")
+
+    # Create file with template if it doesn't exist
+    if [[ ! -f "$init_path" ]]; then
+        cat > "$init_path" << 'EOF'
+# Divaide init script
+# This file runs when creating new worktrees for this project
+# Add your setup commands below (one per line)
+# Example: npm install
+# Example: cp ../.env .env
+
+EOF
+    fi
+
+    log_info "Creating init script at $init_path"
+    ${EDITOR:-vi} "$init_path" < /dev/tty > /dev/tty
+    exit 0
 fi
 
 main "$@"

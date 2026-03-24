@@ -5,6 +5,16 @@ All notable changes to divaide will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] - 2026-03-24
+
+### Added
+- **Project-level init script**: New `--init` flag creates a project-specific init file at `.{repo-name}/init` (sibling to the repo)
+- **Init file precedence**: The init file runs instead of `.divaide` when creating new worktrees, allowing shared setup across all worktrees
+- **Editor integration**: Running `divaide --init` opens the init file in your `$EDITOR` (falls back to `vi`)
+
+### Fixed
+- **Help/flags not working**: Fixed bug where `--help` and other flags would attempt to create a worktree instead of showing help. Changed top-level `return` to `exit` for proper script termination.
+
 ## [0.1.8] - 2026-01-19
 
 ### Fixed
