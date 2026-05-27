@@ -5,6 +5,11 @@ All notable changes to divaide will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-05-27
+
+### Added
+- **Delete worktree**: Press `x` to toggle delete mode on a selected worktree (red highlight + ⊗ prefix), then `Enter` to confirm. Dirty worktrees prompt a second force-delete confirmation. `--help` updated with the full interactive key reference.
+
 ## [0.1.9] - 2026-03-24
 
 ### Added
