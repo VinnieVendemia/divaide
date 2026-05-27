@@ -41,14 +41,60 @@ get_project_worktrees() {
     printf '%s\n' "${worktrees[@]}"
 }
 
+delete_worktree() {
+    local branch_name="$1"
+    local repo_name="$2"
+    local git_root
+    git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+    local worktree_path="${git_root}/../.${repo_name}/trees/${branch_name}"
+
+    echo "Deleting worktree '$branch_name'..." >&2
+    local output
+    if output=$(git worktree remove "$worktree_path" 2>&1); then
+        log_success "Deleted worktree: $branch_name"
+        return 0
+    else
+        if echo "$output" | grep -q "is checked out"; then
+            echo >&2
+            echo "❌ Cannot delete '$branch_name' — it is currently checked out." >&2
+            echo "   Switch to a different branch first, then delete." >&2
+            return 1
+        elif echo "$output" | grep -q "contains modified or untracked files"; then
+            echo >&2
+            echo "⚠  '$branch_name' has uncommitted or untracked changes." >&2
+            printf "Force delete anyway? [y/N] " >&2
+            local answer
+            read -rsn1 answer
+            echo "$answer" >&2
+            if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
+                echo "Force deleting worktree '$branch_name'..." >&2
+                if git worktree remove --force "$worktree_path" 2>&1; then
+                    log_success "Deleted worktree: $branch_name"
+                    return 0
+                else
+                    echo "❌ Force delete failed." >&2
+                    return 1
+                fi
+            else
+                return 1
+            fi
+        else
+            echo >&2
+            echo "❌ Failed to delete worktree '$branch_name':" >&2
+            echo "   $output" >&2
+            return 1
+        fi
+    fi
+}
+
 # Function to display menu with current selection highlighted
 display_menu() {
     local selected="$1"
-    local repo_name="$2"
-    shift 2
+    local delete_mode="$2"
+    local repo_name="$3"
+    shift 3
     local menu_options=("${@}")
 
-    # Clear screen and move cursor to top
     clear >&2
     echo >&2
     echo "Available worktrees for $repo_name:" >&2
@@ -58,7 +104,11 @@ display_menu() {
     local i=0
     for option in "${menu_options[@]}"; do
         if [[ $i -eq $selected ]]; then
-            echo -e "→ \033[7m$option\033[0m" >&2  # Highlighted (reverse video)
+            if [[ $delete_mode -eq 1 ]]; then
+                echo -e "→ \033[1;31m\033[7m⊗ $option\033[0m" >&2  # Bold red reverse (delete mode)
+            else
+                echo -e "→ \033[7m$option\033[0m" >&2               # Highlighted (reverse video)
+            fi
         else
             echo "  $option" >&2
         fi
@@ -66,7 +116,34 @@ display_menu() {
     done
 
     echo >&2
-    echo "Use ↑/↓ arrows to navigate, Enter to select, or any other key to create new" >&2
+    if [[ $delete_mode -eq 1 ]]; then
+        echo "⚠  DELETE MODE — Enter to confirm delete, x to cancel" >&2
+    else
+        echo "Use ↑/↓ to navigate, Enter to select, x to toggle delete mode, or any other key to create new" >&2
+    fi
+}
+
+confirm_delete() {
+    local branch_name="$1"
+    local repo_name="$2"
+
+    clear >&2
+    echo >&2
+    echo "⚠  Delete Worktree" >&2
+    echo "==================" >&2
+    echo >&2
+    echo "  Branch: $branch_name" >&2
+    echo "  Path:   ../.${repo_name}/trees/${branch_name}" >&2
+    echo >&2
+    echo "This will permanently remove the worktree directory." >&2
+    echo >&2
+    printf "Delete? [y/N] " >&2
+
+    local answer
+    read -rsn1 answer
+    echo "$answer" >&2
+
+    [[ "$answer" == "y" || "$answer" == "Y" ]]
 }
 
 # Function to read arrow keys
@@ -75,7 +152,7 @@ read_key() {
     read -rsn1 key
     case "$key" in
         $'\e')  # Escape sequence
-            read -rsn2 key
+            read -rsn2 -t 1 key
             case "$key" in
                 '[A') echo "up" ;;
                 '[B') echo "down" ;;
@@ -83,6 +160,7 @@ read_key() {
             esac
             ;;
         '') echo "enter" ;;  # Enter key
+        'x') echo "x" ;;
         *) echo "other" ;;
     esac
 }
@@ -103,10 +181,11 @@ select_worktree() {
 
     # Arrow key navigation menu
     local selected=0
+    local delete_mode=0
     local max_index=$((${#options[@]} - 1))
 
     # Initial display
-    display_menu "$selected" "$repo_name" "${options[@]}"
+    display_menu "$selected" "$delete_mode" "$repo_name" "${options[@]}"
 
     # Navigation loop
     while true; do
@@ -115,23 +194,46 @@ select_worktree() {
 
         case "$key" in
             "up")
+                delete_mode=0
                 ((selected--))
-                if [[ $selected -lt 0 ]]; then
-                    selected=$max_index
-                fi
-                display_menu "$selected" "$repo_name" "${options[@]}"
+                [[ $selected -lt 0 ]] && selected=$max_index
+                display_menu "$selected" "$delete_mode" "$repo_name" "${options[@]}"
                 ;;
             "down")
+                delete_mode=0
                 ((selected++))
-                if [[ $selected -gt $max_index ]]; then
-                    selected=0
-                fi
-                display_menu "$selected" "$repo_name" "${options[@]}"
+                [[ $selected -gt $max_index ]] && selected=0
+                display_menu "$selected" "$delete_mode" "$repo_name" "${options[@]}"
+                ;;
+            "x")
+                delete_mode=$(( 1 - delete_mode ))  # toggle
+                display_menu "$selected" "$delete_mode" "$repo_name" "${options[@]}"
                 ;;
             "enter")
-                # Selected an option - output the branch name
-                echo "${options[$selected]}"
-                return 0
+                if [[ $delete_mode -eq 1 ]]; then
+                    if confirm_delete "${options[$selected]}" "$repo_name"; then
+                        if delete_worktree "${options[$selected]}" "$repo_name"; then
+                            options=()
+                            while IFS= read -r line; do
+                                [[ -n "$line" ]] && options+=("$line")
+                            done < <(get_project_worktrees "$repo_name")
+                            [[ ${#options[@]} -eq 0 ]] && return 1
+                            max_index=$((${#options[@]} - 1))
+                            [[ $selected -gt $max_index ]] && selected=$max_index
+                            delete_mode=0
+                        else
+                            echo "Press any key to return..." >&2
+                            read -rsn1
+                            delete_mode=0
+                        fi
+                    else
+                        delete_mode=0
+                    fi
+                    display_menu "$selected" "$delete_mode" "$repo_name" "${options[@]}"
+                else
+                    echo "${options[$selected]}"
+                    return 0
+                fi
                 ;;
             "other")
                 # Any other key - go to manual entry
@@ -265,6 +367,13 @@ Arguments:
   branch-name    Branch name for the worktree (will prompt if not provided)
   base-branch    Base branch to branch from (auto-detected if not provided)
   --init         Create/show path to project init script
+
+Interactive selector keys:
+  ↑/↓            Navigate the worktree list
+  Enter          Open the selected worktree
+  x              Toggle delete mode on the selected worktree
+                 Press Enter to confirm deletion, x again to cancel
+  any other key  Exit selector and enter a branch name manually
 
 Examples:
   divaide                                        # Interactive mode
