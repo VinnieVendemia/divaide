@@ -313,7 +313,13 @@ main() {
         
         # Create the worktree
         log_info "Creating git worktree..."
-        if git worktree add -b "$branch_name" "$worktree_path" "$base_branch" >&2; then
+        local worktree_cmd
+        if git show-ref --verify --quiet "refs/heads/$branch_name" 2>/dev/null; then
+            worktree_cmd="git worktree add \"$worktree_path\" \"$branch_name\""
+        else
+            worktree_cmd="git worktree add -b \"$branch_name\" \"$worktree_path\" \"$base_branch\""
+        fi
+        if eval "$worktree_cmd" >&2; then
             log_success "Worktree created successfully"
             
             # Change to the worktree directory
