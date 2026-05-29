@@ -5,6 +5,11 @@ All notable changes to divaide will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-05-29
+
+### Fixed
+- **Existing branch support**: When a branch already exists locally, `divaide` now checks it out into the new worktree instead of failing with "a branch named '...' already exists"
+
 ## [0.2.0] - 2026-05-27
 
 ### Added
